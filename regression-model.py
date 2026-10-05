@@ -2,25 +2,40 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 class RegressionModel:
-    def __init__(self, w = np.array([0.,0.,0.]), b = 0, alpha=0.01):
-        self.w = w
-        self.b = b
+    def __init__(self,alpha=0.01,max_iter=10000,tolerance=1e-9):
+        self.w = None
+        self.b = None
         self.alpha = alpha
-    def predict(self, X):
+        self.max_iter = max_iter
+        self.tolerance = tolerance
+    def predict(self,X):
         return (X@self.w)+self.b
-    def get_size(self, y):
-        return len(y)
-    def calculate_error(self, y_pred, y_actual):
+    def calculate_error(self,y_pred,y_actual):
         return np.array(y_actual - y_pred)
-    def calculate_loss(self,err, n):
+    def calculate_loss(self,err,n):
         return (1/n)*(err.T@err) # This is the same as 1\n * sum((err_i)^2)
     def step(self,n,err,X):
-        # Calculate gradients
+        # Step down
         dw = (-2/n)*X.T@(err)
-        db = (-2/n)*sum(err)
+        db = (-2/n)*np.sum(err)
         # Update parameters
         self.w = self.w - (self.alpha*dw)
         self.b = self.b - (self.alpha*db)
+    def fit(self, X_train, y_train):
+        n,p=X_train.shape
+        self.w=np.zeros(p)
+        self.b=0.
+        y_pred = self.predict(X=X_train)
+        err = self.calculate_error(y_pred=y_pred,y_actual=y_train)
+        loss = self.calculate_loss(err=err,n=n)
+        for i in range(self.max_iter):
+            previous_loss = loss
+            self.step(n=n, err=err,X=X_train)
+            y_pred=self.predict(X=X_train)
+            err=self.calculate_error(y_pred=y_pred,y_actual=y_train)
+            loss = self.calculate_loss(err=err,n=n)
+            if abs(loss-previous_loss)<self.tolerance:
+                break
 
 def create_data():
     np.random.seed(42)
@@ -36,27 +51,15 @@ def create_data():
 def main():
     X_train, y_train = create_data()
     model = RegressionModel()
-    y_pred = model.predict(X=X_train)
-    print(y_pred)
-    err = model.calculate_error(y_pred=y_pred, y_actual=y_train)
-    n = model.get_size(y=y_train)
-    loss = model.calculate_loss(n=n, err=err)
-    loss_i = 0
-    loss_f = loss
-    max_i = 10000
-    tolerance = 1e-9
-    i=0
-    while abs(loss_f - loss_i)>tolerance and i<max_i:
-        model.step(n=n, err=err, X=X_train)
-        y_pred = model.predict(X=X_train)
-        loss_i = loss_f
-        err = model.calculate_error(y_pred=y_pred, y_actual=y_train)
-        loss_f = model.calculate_loss(err, n)
-        i+=1
-    print(f"Loss after {i} rounds: {loss_f}\nWeight: {model.w}\nBias: {model.b}")
-    plt.scatter(y_train, y_pred)
-    low = min(y_train.min(), y_pred.min())
-    high = max(y_train.max(),y_pred.max())
+    n,p=X_train.shape
+    model.fit(X_train=X_train, y_train=y_train)
+    prediction = model.predict(X_train)
+    err = model.calculate_error(y_pred=prediction, y_actual=y_train)
+    loss = model.calculate_loss(err=err, n=n)
+    print(f"Loss after training: {loss}\nWeight: {model.w}\nBias: {model.b}")
+    plt.scatter(y_train, prediction)
+    low = min(y_train.min(), prediction.min())
+    high = max(y_train.max(),prediction.max())
     plt.plot([low, high], [low, high])
     plt.xlabel("Actual")
     plt.ylabel("Predicted")
